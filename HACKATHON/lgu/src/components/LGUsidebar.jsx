@@ -90,6 +90,16 @@ export default function LGUSidebar({ activePath }) {
       </svg>
     ),
   },
+  {
+    label: "Settings",
+    path: "/lgu/settings",
+    icon: (
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <circle cx="7" cy="7" r="2" stroke="currentColor" strokeWidth="1.2"/>
+        <path d="M7 1v1.5M7 11.5V13M13 7h-1.5M2.5 7H1M11.5 11.5l-1-1M3.5 3.5l-1-1M11.5 2.5l-1 1M3.5 10.5l-1 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
 ];
 
   return (

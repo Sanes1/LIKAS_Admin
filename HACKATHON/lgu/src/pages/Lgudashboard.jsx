@@ -108,6 +108,11 @@ export default function LGUDashboard() {
     // Listen to Firebase for real-time project updates
     const unsubscribe = listenToProjects(
       (projectsData) => {
+        console.log("📊 Projects loaded:", projectsData);
+        // Log first project to see structure
+        if (projectsData.length > 0) {
+          console.log("📋 Sample project data:", projectsData[0]);
+        }
         setProjects(projectsData);
         setLoading(false);
       },
@@ -288,6 +293,15 @@ export default function LGUDashboard() {
               </div>
             ) : (
               paginatedProjects.map((p, i) => {
+              console.log(`🔍 Rendering project ${i}:`, { 
+                id: p.id, 
+                title: p.title, 
+                projectTitle: p.projectTitle,
+                name: p.name,
+                description: p.description,
+                status: p.status,
+                allKeys: Object.keys(p)
+              });
               const ss = STATUS_STYLES[p.status];
               const progressColor = p.progress === 100 ? "#2E7D32" : p.progress >= 50 ? "#1E40AF" : "#B45309";
               const destination = p.status === "draft" ? "/lgu/post" : "/lgu/tagging";
@@ -300,7 +314,9 @@ export default function LGUDashboard() {
                       {p.urgent && (
                         <span style={{ fontSize: "9px", fontWeight: "600", color: "#B45309", background: "#FFF8F0", border: "1px solid #FDE8C8", padding: "1px 6px", borderRadius: "99px", animation: "pulse 1.5s infinite" }}>URGENT</span>
                       )}
-                      <span style={{ fontSize: "13px", fontWeight: "500", color: "#0F172A" }}>{p.title}</span>
+                      <span style={{ fontSize: "13px", fontWeight: "500", color: "#0F172A" }}>
+                        {p.title || p.projectTitle || p.name || "Untitled Mission"}
+                      </span>
                     </div>
                     <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
                       {p.tags && Array.isArray(p.tags) && p.tags.slice(0, 2).map((tag, idx) => {
@@ -319,42 +335,52 @@ export default function LGUDashboard() {
                   <div onClick={() => navigate(destination)} style={{ cursor: "pointer" }}>
                     {p.postedBy ? (
                       <>
-                        <div style={{ fontSize: "11px", fontWeight: "500", color: "#0F172A" }}>{p.postedBy.name}</div>
-                        <div style={{ fontSize: "10px", color: "#64748B" }}>Brgy. {p.postedBy.barangay}</div>
+                        <div style={{ fontSize: "11px", fontWeight: "500", color: "#0F172A" }}>{p.postedBy.name || "LGU Staff"}</div>
+                        <div style={{ fontSize: "10px", color: "#64748B" }}>Brgy. {p.postedBy.barangay || "Unknown"}</div>
                       </>
                     ) : (
-                      <span style={{ fontSize: "11px", color: "#94A3B8", fontStyle: "italic" }}>Unknown</span>
+                      <>
+                        <div style={{ fontSize: "11px", fontWeight: "500", color: "#0F172A" }}>LGU Staff</div>
+                        <div style={{ fontSize: "10px", color: "#64748B" }}>Barangay Office</div>
+                      </>
                     )}
                   </div>
 
                   <div onClick={() => navigate(destination)} style={{ cursor: "pointer" }}>
-                    <div style={{ fontSize: "11px", fontWeight: "500", color: progressColor, marginBottom: "4px" }}>{p.progress}%</div>
-                    <ProgressBar value={p.progress} />
+                    <div style={{ fontSize: "11px", fontWeight: "500", color: progressColor, marginBottom: "4px" }}>
+                      {p.progress !== undefined && p.progress !== null ? p.progress : (p.status === "completed" ? 100 : 0)}%
+                    </div>
+                    <ProgressBar value={p.progress !== undefined && p.progress !== null ? p.progress : (p.status === "completed" ? 100 : 0)} />
                   </div>
 
                   <div onClick={() => navigate(destination)} style={{ cursor: "pointer" }}>
                     {p.student ? (
                       <>
                         <div style={{ fontSize: "12px", fontWeight: "500", color: "#0F172A" }}>
-                          {typeof p.student === 'string' ? p.student : p.student.name}
+                          {typeof p.student === 'string' ? p.student : (p.student.name || p.student.fullName || p.studentName || "Student")}
                         </div>
                         <div style={{ fontSize: "10px", color: "#64748B" }}>
-                          {p.studentDegree || (typeof p.student === 'object' ? p.student.degree : '')}
+                          {p.studentDegree || (typeof p.student === 'object' && (p.student.degree || p.student.course)) || 'SHS STEM'}
                         </div>
+                      </>
+                    ) : p.studentName ? (
+                      <>
+                        <div style={{ fontSize: "12px", fontWeight: "500", color: "#0F172A" }}>{p.studentName}</div>
+                        <div style={{ fontSize: "10px", color: "#64748B" }}>{p.studentDegree || p.studentCourse || 'SHS STEM'}</div>
                       </>
                     ) : (
                       <span style={{ fontSize: "11px", color: "#94A3B8", fontStyle: "italic" }}>
-                        {p.status === "draft" ? "Not posted" : "No match yet"}
+                        {p.status === "draft" ? "Not posted" : p.status === "completed" ? "No student assigned" : "No match yet"}
                       </span>
                     )}
                   </div>
 
-                  <span onClick={() => navigate(destination)} style={{ fontSize: "11px", color: p.duration ? "#475569" : "#94A3B8", cursor: "pointer" }}>
-                    {p.duration || "—"}
+                  <span onClick={() => navigate(destination)} style={{ fontSize: "11px", color: "#475569", cursor: "pointer" }}>
+                    {p.duration || (p.status === "completed" ? "Completed" : "TBD")}
                   </span>
 
                   <span onClick={() => navigate(destination)} style={{ fontSize: "10px", fontWeight: "500", color: p.urgency === "high" ? "#B45309" : p.urgency === "medium" ? "#1E40AF" : "#64748B", background: p.urgency === "high" ? "#FFF8F0" : p.urgency === "medium" ? "#EFF6FF" : "#F1F5F9", border: `1px solid ${p.urgency === "high" ? "#FDE8C8" : p.urgency === "medium" ? "#BFDBFE" : "#E2E8F0"}`, padding: "3px 9px", borderRadius: "99px", display: "inline-flex", alignItems: "center", justifyContent: "center", textTransform: "capitalize", cursor: "pointer" }}>
-                    {p.urgency || "Low"}
+                    {p.urgency ? (p.urgency.charAt(0).toUpperCase() + p.urgency.slice(1)) : "Low"}
                   </span>
 
                   <div onClick={() => navigate(destination)} style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>

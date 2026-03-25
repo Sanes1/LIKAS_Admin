@@ -227,32 +227,42 @@ export default function AllMissions() {
                       </button>
 
                       <div onClick={() => navigate(`/lgu/tagging`, { state: { projectId: project.id } })} style={{ marginBottom: "12px" }}>
-                        <h3 style={{ fontSize: "15px", fontWeight: "600", color: "#0F172A", marginBottom: "6px", lineHeight: "1.4" }}>{project.title}</h3>
-                        <p style={{ fontSize: "12px", color: "#64748B" }}>{project.category}</p>
+                        <h3 style={{ fontSize: "15px", fontWeight: "600", color: "#0F172A", marginBottom: "6px", lineHeight: "1.4" }}>
+                          {project.title || "Untitled Mission"}
+                        </h3>
+                        <p style={{ fontSize: "12px", color: "#64748B" }}>
+                          {project.category || "General Category"}
+                        </p>
                       </div>
 
                       <p onClick={() => navigate(`/lgu/tagging`, { state: { projectId: project.id } })} style={{ fontSize: "12px", color: "#475569", lineHeight: "1.6", marginBottom: "14px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                        {project.description}
+                        {project.description || "No description provided for this mission."}
                       </p>
 
-                      <div onClick={() => navigate(`/lgu/tagging`, { state: { projectId: project.id } })} style={{ display: "flex", gap: "8px", marginBottom: "14px", flexWrap: "wrap" }}>
-                        {project.tags && project.tags.slice(0, 3).map((tag, tidx) => {
-                          const tagText = typeof tag === 'string' ? tag : tag.competency;
-                          return (
-                            <span key={`${project.id}-tag-${tidx}-${tagText}`} style={{ fontSize: "10px", color: "#475569", background: "#F1F5F9", border: "1px solid #E2E8F0", padding: "2px 8px", borderRadius: "99px" }}>
-                              {tagText}
-                            </span>
-                          );
-                        })}
-                        {project.tags && project.tags.length > 3 && (
-                          <span style={{ fontSize: "10px", color: "#94A3B8" }}>+{project.tags.length - 3}</span>
+                      <div onClick={() => navigate(`/lgu/tagging`, { state: { projectId: project.id } })} style={{ display: "flex", gap: "8px", marginBottom: "14px", flexWrap: "wrap", minHeight: "24px" }}>
+                        {project.tags && project.tags.length > 0 ? (
+                          <>
+                            {project.tags.slice(0, 3).map((tag, tidx) => {
+                              const tagText = typeof tag === 'string' ? tag : (tag.competency || tag.name || 'Tag');
+                              return (
+                                <span key={`${project.id}-tag-${tidx}-${tagText}`} style={{ fontSize: "10px", color: "#475569", background: "#F1F5F9", border: "1px solid #E2E8F0", padding: "2px 8px", borderRadius: "99px" }}>
+                                  {tagText}
+                                </span>
+                              );
+                            })}
+                            {project.tags.length > 3 && (
+                              <span style={{ fontSize: "10px", color: "#94A3B8" }}>+{project.tags.length - 3}</span>
+                            )}
+                          </>
+                        ) : (
+                          <span style={{ fontSize: "10px", color: "#94A3B8", fontStyle: "italic" }}>No competency tags yet</span>
                         )}
                       </div>
 
                       <div onClick={() => navigate(`/lgu/tagging`, { state: { projectId: project.id } })} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: "12px", borderTop: "1px solid #F1F5F9" }}>
                         <div style={{ display: "flex", gap: "12px", fontSize: "11px", color: "#64748B" }}>
-                          <span>⏱ {project.duration || "—"}</span>
-                          <span style={{ textTransform: "capitalize" }}>🔥 {project.urgency || "low"}</span>
+                          <span>⏱ {project.duration || (project.status === "completed" ? "Completed" : "TBD")}</span>
+                          <span style={{ textTransform: "capitalize" }}>🔥 {project.urgency ? (project.urgency.charAt(0).toUpperCase() + project.urgency.slice(1)) : "Low"}</span>
                         </div>
                         <span style={{ fontSize: "10px", fontWeight: "500", color: ss.text, background: ss.bg, border: `1px solid ${ss.border}`, padding: "3px 10px", borderRadius: "99px" }}>
                           {ss.label}

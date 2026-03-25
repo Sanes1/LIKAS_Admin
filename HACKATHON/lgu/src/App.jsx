@@ -4,6 +4,7 @@ import PostANeed              from './pages/Postaneed.jsx'
 import CompetencyTagging      from './pages/Competencytagging.jsx'
 import AllMissions            from './pages/Allmissions.jsx'
 import ProductivityAnalytics  from './pages/Productivityanalytics.jsx'
+import Settings               from './pages/Settings.jsx'
 import LGULogin               from './pages/Lgulogin.jsx'
 import ReviewSubmissions      from './pages/Reviewsubmissions.jsx'
 
@@ -20,6 +21,7 @@ function App() {
         <Route path="/lgu/missions" element={<AllMissions />} />
         <Route path="/lgu/analytics" element={<ProductivityAnalytics />} />
         <Route path="/lgu/review" element={<ReviewSubmissions />} />
+        <Route path="/lgu/settings" element={<Settings />} />
 
         {/* Placeholders — swap in as screens are built */}
         <Route path="/lgu/tagging"       element={<CompetencyTagging />} />
