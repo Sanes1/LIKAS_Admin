@@ -11,12 +11,14 @@ export const analyzeCompetency = async (projectData) => {
 
 Analyze this community project. Accept realistic projects that solve real problems. Only reject nonsense (gibberish), impossible requests (time travel), or harmful content.
 
-Figure out which STEM subject best fits this project. You MUST choose from this exact list of subjects:
+Figure out which STEM subjects best fit this project. You MUST choose from this exact list of subjects:
 - Biology
 - Chemistry
 - Earth and Space Science
 - Finite Mathematics
 - Physics
+
+IMPORTANT: Generate as many relevant competency tags as you find appropriate for this project. There is NO LIMIT on the number of tags. A complex project may need 3-8 tags or more. Each tag should represent a distinct STEM competency that students will need to complete the project successfully.
 
 Project:
 Title: ${projectData.title}
@@ -25,7 +27,8 @@ Description: ${projectData.description}
 Impact: ${projectData.impact}
 Deliverables: ${projectData.outputs}
 
-Return exactly this JSON structure based on your analysis. DO NOT wrap it in \`\`\`json markdown blocks. Return ONLY the raw JSON object:
+Return exactly this JSON structure based on your analysis. DO NOT wrap it in \`\`\`json markdown blocks. Return ONLY the raw JSON object.
+Generate as many tags as needed - do not limit yourself to just 2 or 3 tags:
 {
   "isValid": true, 
   "reason": "Leave empty if valid. If rejecting, explain why.",
@@ -40,7 +43,17 @@ Return exactly this JSON structure based on your analysis. DO NOT wrap it in \`\
       "confidence": 85,
       "rationale": "Matches project needs for gathering health data.",
       "keywords": ["data", "health records"],
-      "status": "approved"
+      "status": "pending"
+    },
+    {
+      "competency": "Statistical Analysis",
+      "subject": "Finite Mathematics",
+      "degree": "SHS STEM Strand",
+      "units": 3,
+      "confidence": 90,
+      "rationale": "Required for analyzing collected data and drawing conclusions.",
+      "keywords": ["statistics", "analysis"],
+      "status": "pending"
     }
   ]
 }`;
@@ -80,7 +93,7 @@ Return exactly this JSON structure based on your analysis. DO NOT wrap it in \`\
         confidence: Number(tag.confidence) || 75,
         rationale: String(tag.rationale || ""),
         keywords: Array.isArray(tag.keywords) ? tag.keywords : [],
-        status: String(tag.status || "approved")
+        status: String(tag.status || "pending")
       })) : []
     };
     
@@ -100,34 +113,112 @@ Return exactly this JSON structure based on your analysis. DO NOT wrap it in \`\
       };
     }
 
-    // If it looks like a real project, give it fake STEM tags using your exact list!
+    // If it looks like a real project, give it fallback STEM tags using your exact list!
+    // Generate 2-3 tags based on the category
+    const fallbackTags = [];
+    
+    // Always add a primary tag based on category
+    if (projectData.category?.toLowerCase().includes('biology') || projectData.description?.toLowerCase().includes('health')) {
+      fallbackTags.push({
+        competency: "Data Collection and Analysis",
+        subject: "Biology",
+        degree: "SHS STEM Strand",
+        units: 3,
+        confidence: 85,
+        rationale: "Systematic collection and organization of biological or health-related information.",
+        keywords: ["data", "health", "collection"],
+        status: "pending"
+      });
+    }
+    
+    if (projectData.category?.toLowerCase().includes('chemistry') || projectData.description?.toLowerCase().includes('chemical')) {
+      fallbackTags.push({
+        competency: "Chemical Analysis",
+        subject: "Chemistry",
+        degree: "SHS STEM Strand",
+        units: 3,
+        confidence: 85,
+        rationale: "Applying chemical principles to solve community problems.",
+        keywords: ["chemical", "analysis", "solution"],
+        status: "pending"
+      });
+    }
+    
+    if (projectData.category?.toLowerCase().includes('physics') || projectData.description?.toLowerCase().includes('energy')) {
+      fallbackTags.push({
+        competency: "Scientific Observation",
+        subject: "Physics",
+        degree: "SHS STEM Strand",
+        units: 3,
+        confidence: 88,
+        rationale: "Physical resource tracking and energy-related analysis.",
+        keywords: ["physics", "energy", "tracking"],
+        status: "pending"
+      });
+    }
+    
+    if (projectData.category?.toLowerCase().includes('earth') || projectData.description?.toLowerCase().includes('environment')) {
+      fallbackTags.push({
+        competency: "Environmental Analysis",
+        subject: "Earth and Space Science",
+        degree: "SHS STEM Strand",
+        units: 3,
+        confidence: 82,
+        rationale: "Understanding environmental systems and their impact on communities.",
+        keywords: ["environment", "earth", "systems"],
+        status: "pending"
+      });
+    }
+    
+    // Always add quantitative analysis for any project involving data/systems
+    if (projectData.description?.toLowerCase().includes('system') || 
+        projectData.description?.toLowerCase().includes('data') ||
+        projectData.description?.toLowerCase().includes('track') ||
+        projectData.description?.toLowerCase().includes('record')) {
+      fallbackTags.push({
+        competency: "Quantitative Analysis",
+        subject: "Finite Mathematics",
+        degree: "SHS STEM Strand",
+        units: 3,
+        confidence: 90,
+        rationale: "Mathematical analysis for data organization and system design.",
+        keywords: ["system", "design", "data", "mathematics"],
+        status: "pending"
+      });
+    }
+    
+    // If no specific tags matched, add generic STEM tags
+    if (fallbackTags.length === 0) {
+      fallbackTags.push(
+        {
+          competency: "Problem Solving",
+          subject: "Finite Mathematics",
+          degree: "SHS STEM Strand",
+          units: 3,
+          confidence: 80,
+          rationale: "Applying systematic problem-solving approaches to community challenges.",
+          keywords: ["problem", "solution", "analysis"],
+          status: "pending"
+        },
+        {
+          competency: "Scientific Method Application",
+          subject: "Biology",
+          degree: "SHS STEM Strand",
+          units: 3,
+          confidence: 75,
+          rationale: "Using scientific approaches to address real-world problems.",
+          keywords: ["scientific", "method", "research"],
+          status: "pending"
+        }
+      );
+    }
+    
     return {
       isValid: true,
       reason: "",
       department: "Department of Education",
       curriculum: "STEM Curriculum",
-      tags: [
-        {
-          competency: "Quantitative Analysis",
-          subject: "Finite Mathematics",
-          degree: "SHS STEM Strand",
-          units: 3,
-          confidence: 95,
-          rationale: "Matches your project requirements for calculating data and logistics.",
-          keywords: ["system", "design", "data"],
-          status: "approved"
-        },
-        {
-          competency: "Scientific Observation",
-          subject: "Physics",
-          degree: "SHS STEM Strand",
-          units: 3,
-          confidence: 88,
-          rationale: "Data storage, physical resource tracking, and retrieval needed for the project.",
-          keywords: ["records", "tracking"],
-          status: "pending"
-        }
-      ]
+      tags: fallbackTags
     };
   }
 };

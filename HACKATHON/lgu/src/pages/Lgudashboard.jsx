@@ -102,7 +102,37 @@ export default function LGUDashboard() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [userData, setUserData] = useState({
+    name: "LGU Staff",
+    barangay: "Barangay",
+    city: "City"
+  });
   const itemsPerPage = 5;
+
+  // Get time-based greeting
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
+  };
+
+  useEffect(() => {
+    // Load user data from localStorage
+    const userStr = localStorage.getItem("lguUser");
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        setUserData({
+          name: user.name || "LGU Staff",
+          barangay: user.barangay || "Barangay",
+          city: user.city || "City"
+        });
+      } catch (e) {
+        console.error("Failed to parse user data:", e);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     // Listen to Firebase for real-time project updates
@@ -205,10 +235,10 @@ export default function LGUDashboard() {
             <div>
               <p style={{ fontSize: "11px", color: "#64748B", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: "500", marginBottom: "8px" }}>LGU Dashboard</p>
               <h1 style={{ fontSize: "28px", fontFamily: "'DM Serif Display', Georgia, serif", fontWeight: "400", color: "#0F172A", letterSpacing: "-0.5px", lineHeight: "1.2", marginBottom: "6px" }}>
-                Good morning, Hon. Ricardo Santos.
+                {getGreeting()}, {userData.name}.
               </h1>
               <p style={{ fontSize: "13px", color: "#64748B" }}>
-                {projects.length} community projects · Barangay San Roque, Marikina City
+                {projects.length} community projects · Barangay {userData.barangay}, {userData.city}
               </p>
             </div>
             <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
@@ -293,18 +323,56 @@ export default function LGUDashboard() {
               </div>
             ) : (
               paginatedProjects.map((p, i) => {
-              console.log(`🔍 Rendering project ${i}:`, { 
-                id: p.id, 
-                title: p.title, 
-                projectTitle: p.projectTitle,
-                name: p.name,
-                description: p.description,
-                status: p.status,
-                allKeys: Object.keys(p)
-              });
+              // Debug logging for completed missions specifically
+              if (p.status === 'completed') {
+                console.log(`🔍 COMPLETED Mission ${i}:`, { 
+                  id: p.id, 
+                  title: p.title,
+                  missionTitle: p.missionTitle,
+                  projectTitle: p.projectTitle,
+                  description: p.description,
+                  missionDescription: p.missionDescription,
+                  projectDescription: p.projectDescription,
+                  postedBy: p.postedBy,
+                  tags: p.tags,
+                  tagsLength: p.tags?.length,
+                  allKeys: Object.keys(p)
+                });
+              }
+              
               const ss = STATUS_STYLES[p.status];
               const progressColor = p.progress === 100 ? "#2E7D32" : p.progress >= 50 ? "#1E40AF" : "#B45309";
               const destination = p.status === "draft" ? "/lgu/post" : "/lgu/tagging";
+              
+              // Try to get title from multiple possible fields, including originalData backup
+              const projectTitle = p.title || p.missionTitle || p.projectTitle || p.name || 
+                                   (p.originalData && p.originalData.title) ||
+                                   (p.analysis && p.analysis.title) || "Untitled Mission";
+              
+              // Try to get tags from multiple sources including originalData backup
+              let displayTags = [];
+              if (p.tags && Array.isArray(p.tags) && p.tags.length > 0) {
+                displayTags = p.tags;
+              } else if (p.originalData && p.originalData.tags && Array.isArray(p.originalData.tags) && p.originalData.tags.length > 0) {
+                displayTags = p.originalData.tags;
+              } else if (p.analysis && p.analysis.tags && Array.isArray(p.analysis.tags) && p.analysis.tags.length > 0) {
+                displayTags = p.analysis.tags;
+              } else if (p.competencies && Array.isArray(p.competencies) && p.competencies.length > 0) {
+                displayTags = p.competencies;
+              }
+              
+              // Try to get postedBy from multiple sources including originalData backup
+              let displayPostedBy = null;
+              if (p.postedBy && (p.postedBy.name || p.postedBy.barangay)) {
+                displayPostedBy = p.postedBy;
+              } else if (p.originalData && p.originalData.postedBy && (p.originalData.postedBy.name || p.originalData.postedBy.barangay)) {
+                displayPostedBy = p.originalData.postedBy;
+              } else if (p.analysis && p.analysis.postedBy && (p.analysis.postedBy.name || p.analysis.postedBy.barangay)) {
+                displayPostedBy = p.analysis.postedBy;
+              } else if (p.createdBy) {
+                displayPostedBy = typeof p.createdBy === 'object' ? p.createdBy : { name: p.createdBy };
+              }
+              
               return (
                 <div key={p.id} className="row-hover"
                   style={{ display: "grid", gridTemplateColumns: "2.5fr 1.3fr 100px 160px 120px 110px 150px 50px", padding: "18px 24px", borderBottom: i < paginatedProjects.length - 1 ? "1px solid #F1F5F9" : "none", alignItems: "center", gap: "12px", transition: "background 0.12s" }}>
@@ -315,28 +383,37 @@ export default function LGUDashboard() {
                         <span style={{ fontSize: "9px", fontWeight: "600", color: "#B45309", background: "#FFF8F0", border: "1px solid #FDE8C8", padding: "1px 6px", borderRadius: "99px", animation: "pulse 1.5s infinite" }}>URGENT</span>
                       )}
                       <span style={{ fontSize: "13px", fontWeight: "500", color: "#0F172A" }}>
-                        {p.title || p.projectTitle || p.name || "Untitled Mission"}
+                        {projectTitle}
                       </span>
                     </div>
-                    <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
-                      {p.tags && Array.isArray(p.tags) && p.tags.slice(0, 2).map((tag, idx) => {
-                        const tagText = typeof tag === 'string' ? tag : (tag?.competency || tag?.name || 'Tag');
-                        return (
-                          <span key={`${p.id}-tag-${idx}-${tagText}`} style={{ fontSize: "10px", color: "#475569", background: "#F1F5F9", border: "1px solid #E2E8F0", padding: "1px 7px", borderRadius: "99px" }}>
-                            {tagText}
-                          </span>
-                        );
-                      })}
-                      {p.tags && Array.isArray(p.tags) && p.tags.length > 2  && <span style={{ fontSize: "10px", color: "#94A3B8" }}>+{p.tags.length - 2}</span>}
-                      {(!p.tags || !Array.isArray(p.tags) || p.tags.length === 0) && <span style={{ fontSize: "10px", color: "#94A3B8", fontStyle: "italic" }}>No tags yet</span>}
+                    <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", minHeight: "20px" }}>
+                      {displayTags.length > 0 ? (
+                        <>
+                          {displayTags.slice(0, 2).map((tag, idx) => {
+                            const tagText = typeof tag === 'string' ? tag : (tag?.competency || tag?.name || tag?.label || 'Tag');
+                            return (
+                              <span key={`${p.id}-tag-${idx}-${tagText}`} style={{ fontSize: "10px", color: "#475569", background: "#F1F5F9", border: "1px solid #E2E8F0", padding: "1px 7px", borderRadius: "99px" }}>
+                                {tagText}
+                              </span>
+                            );
+                          })}
+                          {displayTags.length > 2 && <span style={{ fontSize: "10px", color: "#94A3B8" }}>+{displayTags.length - 2}</span>}
+                        </>
+                      ) : (
+                        <span style={{ fontSize: "10px", color: "#94A3B8", fontStyle: "italic" }}>No tags yet</span>
+                      )}
                     </div>
                   </div>
 
                   <div onClick={() => navigate(destination)} style={{ cursor: "pointer" }}>
-                    {p.postedBy ? (
+                    {displayPostedBy ? (
                       <>
-                        <div style={{ fontSize: "11px", fontWeight: "500", color: "#0F172A" }}>{p.postedBy.name || "LGU Staff"}</div>
-                        <div style={{ fontSize: "10px", color: "#64748B" }}>Brgy. {p.postedBy.barangay || "Unknown"}</div>
+                        <div style={{ fontSize: "11px", fontWeight: "500", color: "#0F172A" }}>
+                          {displayPostedBy.name || "LGU Staff"}
+                        </div>
+                        <div style={{ fontSize: "10px", color: "#64748B" }}>
+                          {displayPostedBy.barangay ? `Brgy. ${displayPostedBy.barangay}` : "Barangay Office"}
+                        </div>
                       </>
                     ) : (
                       <>

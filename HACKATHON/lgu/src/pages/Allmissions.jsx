@@ -194,6 +194,48 @@ export default function AllMissions() {
                 {currentProjects.map((project, idx) => {
                   const ss = STATUS_STYLES[project.status] || STATUS_STYLES.draft;
                   const isNew = idx === 0 && currentPage === 1;
+                  
+                  // Try to get title from multiple possible fields, including originalData backup
+                  const projectTitle = project.title || project.missionTitle || project.projectTitle || project.name || 
+                                       (project.originalData && project.originalData.title) ||
+                                       (project.analysis && project.analysis.title) || "Untitled Mission";
+                  
+                  // Try to get tags from multiple sources including originalData backup
+                  let displayTags = [];
+                  if (project.tags && Array.isArray(project.tags) && project.tags.length > 0) {
+                    displayTags = project.tags;
+                  } else if (project.originalData && project.originalData.tags && Array.isArray(project.originalData.tags) && project.originalData.tags.length > 0) {
+                    displayTags = project.originalData.tags;
+                  } else if (project.analysis && project.analysis.tags && Array.isArray(project.analysis.tags) && project.analysis.tags.length > 0) {
+                    displayTags = project.analysis.tags;
+                  } else if (project.competencies && Array.isArray(project.competencies) && project.competencies.length > 0) {
+                    displayTags = project.competencies;
+                  }
+                  
+                  // Try to get description from multiple sources including originalData backup
+                  const projectDescription = project.description || project.missionDescription || project.projectDescription ||
+                                            (project.originalData && project.originalData.description) ||
+                                            (project.analysis && project.analysis.description) || "No description provided for this mission.";
+                  
+                  // Debug logging for completed missions specifically
+                  if (project.status === 'completed') {
+                    console.log(`🔍 COMPLETED Mission in All Missions ${idx}:`, {
+                      id: project.id,
+                      title: project.title,
+                      missionTitle: project.missionTitle,
+                      description: project.description,
+                      missionDescription: project.missionDescription,
+                      projectDescription: project.projectDescription,
+                      calculatedTitle: projectTitle,
+                      status: project.status,
+                      postedBy: project.postedBy,
+                      createdBy: project.createdBy,
+                      tags: project.tags,
+                      competencies: project.competencies,
+                      tagsLength: project.tags?.length,
+                      allKeys: Object.keys(project)
+                    });
+                  }
 
                   return (
                     <div 
@@ -228,7 +270,7 @@ export default function AllMissions() {
 
                       <div onClick={() => navigate(`/lgu/tagging`, { state: { projectId: project.id } })} style={{ marginBottom: "12px" }}>
                         <h3 style={{ fontSize: "15px", fontWeight: "600", color: "#0F172A", marginBottom: "6px", lineHeight: "1.4" }}>
-                          {project.title || "Untitled Mission"}
+                          {projectTitle}
                         </h3>
                         <p style={{ fontSize: "12px", color: "#64748B" }}>
                           {project.category || "General Category"}
@@ -236,22 +278,22 @@ export default function AllMissions() {
                       </div>
 
                       <p onClick={() => navigate(`/lgu/tagging`, { state: { projectId: project.id } })} style={{ fontSize: "12px", color: "#475569", lineHeight: "1.6", marginBottom: "14px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                        {project.description || "No description provided for this mission."}
+                        {projectDescription}
                       </p>
 
                       <div onClick={() => navigate(`/lgu/tagging`, { state: { projectId: project.id } })} style={{ display: "flex", gap: "8px", marginBottom: "14px", flexWrap: "wrap", minHeight: "24px" }}>
-                        {project.tags && project.tags.length > 0 ? (
+                        {displayTags.length > 0 ? (
                           <>
-                            {project.tags.slice(0, 3).map((tag, tidx) => {
-                              const tagText = typeof tag === 'string' ? tag : (tag.competency || tag.name || 'Tag');
+                            {displayTags.slice(0, 3).map((tag, tidx) => {
+                              const tagText = typeof tag === 'string' ? tag : (tag?.competency || tag?.name || tag?.label || 'Tag');
                               return (
                                 <span key={`${project.id}-tag-${tidx}-${tagText}`} style={{ fontSize: "10px", color: "#475569", background: "#F1F5F9", border: "1px solid #E2E8F0", padding: "2px 8px", borderRadius: "99px" }}>
                                   {tagText}
                                 </span>
                               );
                             })}
-                            {project.tags.length > 3 && (
-                              <span style={{ fontSize: "10px", color: "#94A3B8" }}>+{project.tags.length - 3}</span>
+                            {displayTags.length > 3 && (
+                              <span style={{ fontSize: "10px", color: "#94A3B8" }}>+{displayTags.length - 3}</span>
                             )}
                           </>
                         ) : (

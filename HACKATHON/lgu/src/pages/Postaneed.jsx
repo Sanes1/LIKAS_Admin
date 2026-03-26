@@ -1,19 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import LGUSidebar from "../components/LGUsidebar.jsx";
 import NotificationBell from "../components/NotificationBell.jsx";
 import { analyzeCompetency } from "../utils/aiService";
 import { createProject, saveAnalysis } from "../services/firebaseService"; 
 
-const CATEGORIES = [
-  "Information Technology",
-  "Public Health",
-  "Education & Literacy",
-  "Research & Data",
-  "Public Administration",
-  "Environment",
-  "Livelihood & Economics",
-  "Communications",
+const SUBJECTS = [
+  "Biology",
+  "Chemistry",
+  "Earth and Space Science",
+  "Finite Mathematics",
+  "Physics",
 ];
 
 const URGENCY_LEVELS = [
@@ -31,14 +28,14 @@ const MISSION_TIERS = [
 const EXAMPLE_PROBLEMS = [
   {
     title: "Automated inventory for our Health Center's medicine supply",
-    category: "Information Technology",
+    category: "Biology",
     description: "Our barangay health center currently tracks medicine stocks using a physical logbook. Medicines expire unnoticed and restocking is always delayed. We need a simple digital system that records incoming and outgoing medicines, alerts staff when a medicine is low, and generates a monthly report.",
     impact: "24 monthly patients directly affected by medicine shortages. Manual tracking causes 3–5 days of delay per restock cycle.",
     outputs: "Working inventory application, user manual, staff training session",
   },
   {
     title: "Digital blotter system to replace handwritten records",
-    category: "Information Technology",
+    category: "Finite Mathematics",
     description: "All incident reports filed at the barangay hall are handwritten and stored in folders. Retrieving old records takes hours. We need a searchable digital blotter that allows staff to log incidents, search by date or name, and generate monthly summaries.",
     impact: "Avg. 40 blotter entries per month. Manual retrieval averages 45 minutes per record request.",
     outputs: "Digital blotter system, data migration of past 12 months of records, printed user guide",
@@ -57,8 +54,22 @@ export default function PostANeed() {
   const [tier,        setTier]        = useState("beginner");
   const [slots,       setSlots]       = useState(1);
   const [duration,    setDuration]    = useState("");
-  const [contactName, setContactName] = useState("Hon. Ricardo Santos");
-  const [contactRole, setContactRole] = useState("Barangay Captain");
+  const [contactName, setContactName] = useState("");
+  const [contactRole, setContactRole] = useState("");
+  
+  // Load user data from localStorage on mount
+  useEffect(() => {
+    const userStr = localStorage.getItem("lguUser");
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        setContactName(user.name || "");
+        setContactRole(user.position || "LGU Staff");
+      } catch (e) {
+        console.error("Failed to parse user data:", e);
+      }
+    }
+  }, []);
   
 
   // --- AI STATES ---
@@ -160,7 +171,20 @@ export default function PostANeed() {
               curriculum: aiResponse.curriculum,
               department: aiResponse.department,
               tokensReward: tier === "advanced" ? 15 : tier === "intermediate" ? 10 : 5,
-              status: 'matching'
+              status: 'matching',
+              slotsRemaining: slots,
+              assignedStudents: [],
+              completedStudents: [],
+              // Backup original data to prevent loss when students complete missions
+              originalData: {
+                title: title,
+                description: description,
+                tags: aiResponse.tags || [],
+                postedBy: projectData.postedBy,
+                category: category,
+                impact: impact,
+                outputs: outputs
+              }
             });
 
             console.log("Project created with ID:", newProjectId);
@@ -226,7 +250,7 @@ export default function PostANeed() {
             <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: "10px", padding: "18px 20px", marginBottom: "28px", textAlign: "left", animation: "fadeUp 0.3s 0.1s ease both" }}>
               {[
                 { label: "Next Step",     value: "AI Competency Tagging" },
-                { label: "Category",      value: category },
+                { label: "Subject",       value: category },
                 { label: "Mission Tier",  value: MISSION_TIERS.find(t => t.id === tier)?.label },
                 { label: "Urgency",       value: URGENCY_LEVELS.find(u => u.id === urgency)?.label },
                 { label: "Student Slots", value: slots },
@@ -414,12 +438,12 @@ export default function PostANeed() {
 
                 <div>
                   <label style={{ display: "block", fontSize: "11px", color: "#64748B", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: "500", marginBottom: "7px" }}>
-                    Category <span style={{ color: "#C62828" }}>*</span>
+                    Subject <span style={{ color: "#C62828" }}>*</span>
                   </label>
                   <select value={category} onChange={e => { setCategory(e.target.value); setAiRejection(null); }}
                     style={{ width: "100%", padding: "10px 13px", background: "#fff", border: `1px solid ${errors.category ? "#C62828" : "#CBD5E1"}`, borderRadius: "6px", fontSize: "13px", color: category ? "#0F172A" : "#64748B", appearance: "none", backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23A09990' stroke-width='1.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center" }}>
-                    <option value="">Select a category…</option>
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    <option value="">Select a subject…</option>
+                    {SUBJECTS.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                   {errors.category && <p style={{ fontSize: "11px", color: "#C62828", marginTop: "4px" }}>{errors.category}</p>}
                 </div>

@@ -54,10 +54,42 @@ export const createProject = async (projectData) => {
 
 export const updateProject = async (projectId, updates) => {
   const projectRef = doc(db, 'projects', projectId);
-  await updateDoc(projectRef, {
-    ...updates,
-    updatedAt: serverTimestamp()
-  });
+  
+  // If updating to completed status, ensure we preserve critical fields
+  if (updates.status === 'completed') {
+    // Get current project data to preserve important fields
+    const currentProject = await getProject(projectId);
+    
+    // Ensure critical fields are preserved
+    const safeUpdates = {
+      ...updates,
+      // Preserve description if not explicitly being updated
+      description: updates.description || currentProject?.description || "",
+      // Preserve tags if not explicitly being updated
+      tags: updates.tags || currentProject?.tags || [],
+      // Preserve postedBy if not explicitly being updated  
+      postedBy: updates.postedBy || currentProject?.postedBy || null,
+      // Preserve category/subject
+      category: updates.category || currentProject?.category || "",
+      // Preserve title
+      title: updates.title || currentProject?.title || currentProject?.missionTitle || "",
+      updatedAt: serverTimestamp()
+    };
+    
+    console.log("🔒 Preserving fields for completed mission:", {
+      projectId,
+      description: safeUpdates.description,
+      tags: safeUpdates.tags?.length,
+      postedBy: safeUpdates.postedBy?.name
+    });
+    
+    await updateDoc(projectRef, safeUpdates);
+  } else {
+    await updateDoc(projectRef, {
+      ...updates,
+      updatedAt: serverTimestamp()
+    });
+  }
 };
 
 export const deleteProject = async (projectId) => {
@@ -72,6 +104,22 @@ export const listenToProjects = (callback, errorCallback) => {
     (snapshot) => {
       const projectsArray = snapshot.docs.map(doc => {
         const data = doc.data();
+        
+        // Debug logging for completed missions
+        if (data.status === 'completed') {
+          console.log(`🔍 RAW Firebase data for completed mission ${doc.id}:`, {
+            id: doc.id,
+            title: data.title,
+            description: data.description,
+            missionDescription: data.missionDescription,
+            projectDescription: data.projectDescription,
+            tags: data.tags,
+            postedBy: data.postedBy,
+            allFields: Object.keys(data),
+            FULL_DATA: data  // Show complete object
+          });
+        }
+        
         return {
           id: doc.id,
           ...data,
@@ -191,4 +239,79 @@ export const createNotification = async (notificationData) => {
     console.error("❌ Error creating notification:", error);
     throw error;
   }
+};
+
+// Slot Management Functions
+export const canStudentAcceptMission = async (projectId, studentId) => {
+  const project = await getProject(projectId);
+  if (!project) return { canAccept: false, reason: "Mission not found" };
+  
+  // Check if mission is full
+  const completedCount = project.completedStudents?.length || 0;
+  const assignedCount = project.assignedStudents?.length || 0;
+  const totalSlots = project.slots || 1;
+  
+  if (completedCount + assignedCount >= totalSlots) {
+    return { canAccept: false, reason: "All slots are filled" };
+  }
+  
+  // Check if student already accepted or completed
+  if (project.assignedStudents?.includes(studentId)) {
+    return { canAccept: false, reason: "You already accepted this mission" };
+  }
+  
+  if (project.completedStudents?.includes(studentId)) {
+    return { canAccept: false, reason: "You already completed this mission" };
+  }
+  
+  return { canAccept: true, reason: "" };
+};
+
+export const assignStudentToMission = async (projectId, studentId, studentData) => {
+  const project = await getProject(projectId);
+  if (!project) throw new Error("Mission not found");
+  
+  // Verify student can accept
+  const check = await canStudentAcceptMission(projectId, studentId);
+  if (!check.canAccept) throw new Error(check.reason);
+  
+  const projectRef = doc(db, 'projects', projectId);
+  const assignedStudents = project.assignedStudents || [];
+  const slotsRemaining = (project.slotsRemaining || project.slots || 1) - 1;
+  
+  await updateDoc(projectRef, {
+    assignedStudents: [...assignedStudents, studentId],
+    slotsRemaining: slotsRemaining,
+    status: slotsRemaining === 0 ? 'full' : 'active',
+    student: studentData, // For backward compatibility
+    updatedAt: serverTimestamp()
+  });
+  
+  console.log(`✅ Student ${studentId} assigned to mission ${projectId}`);
+};
+
+export const completeStudentMission = async (projectId, studentId) => {
+  const project = await getProject(projectId);
+  if (!project) throw new Error("Mission not found");
+  
+  const projectRef = doc(db, 'projects', projectId);
+  
+  // Remove from assigned, add to completed
+  const assignedStudents = (project.assignedStudents || []).filter(id => id !== studentId);
+  const completedStudents = [...(project.completedStudents || []), studentId];
+  
+  // Check if all slots are now completed
+  const totalSlots = project.slots || 1;
+  const allCompleted = completedStudents.length >= totalSlots;
+  
+  await updateDoc(projectRef, {
+    assignedStudents: assignedStudents,
+    completedStudents: completedStudents,
+    status: allCompleted ? 'completed' : 'active',
+    updatedAt: serverTimestamp()
+  });
+  
+  console.log(`✅ Student ${studentId} completed mission ${projectId}. ${completedStudents.length}/${totalSlots} slots filled.`);
+  
+  return { allCompleted, completedCount: completedStudents.length, totalSlots };
 };

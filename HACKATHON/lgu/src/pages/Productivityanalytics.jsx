@@ -4,6 +4,8 @@ import LGUSidebar from "../components/LGUsidebar.jsx";
 import NotificationBell from "../components/NotificationBell.jsx";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
 import { listenToProjects } from "../services/firebaseService";
+import { collection, onSnapshot } from "firebase/firestore";
+import { db } from "../firebase/config";
 
 export default function ProductivityAnalytics() {
   const navigate = useNavigate();
@@ -54,32 +56,53 @@ export default function ProductivityAnalytics() {
     return sum;
   }, 0);
 
-  // Extract schools from student data and count contributions
-  const schoolStats = {};
-  projects.forEach(p => {
-    if (p.assignedStudent && p.assignedStudent.school) {
-      const school = p.assignedStudent.school;
-      if (!schoolStats[school]) {
-        schoolStats[school] = {
-          name: school,
-          activeProjects: 0,
-          completedProjects: 0,
-          totalProjects: 0,
-          students: new Set(),
+  // Extract student data from completed projects
+  const studentStats = {};
+  
+  projects.forEach(project => {
+    // Only count completed projects with student data
+    if (project.status === "completed" && project.studentName) {
+      const studentName = project.studentName;
+      const studentSchool = project.school || "Unknown School";
+      const studentDegree = "SHS STEM";
+      
+      if (!studentStats[studentName]) {
+        studentStats[studentName] = {
+          name: studentName,
+          school: studentSchool,
+          degree: studentDegree,
+          completedMissions: 0,
+          totalHours: 0,
         };
       }
       
-      schoolStats[school].totalProjects++;
-      if (p.status === "completed") schoolStats[school].completedProjects++;
-      if (p.status === "active") schoolStats[school].activeProjects++;
-      if (p.assignedStudent.name) schoolStats[school].students.add(p.assignedStudent.name);
+      studentStats[studentName].completedMissions++;
+      
+      // Calculate hours if duration exists
+      if (project.duration) {
+        const match = project.duration.match(/(\d+)\s*(month|week|day)/i);
+        if (match) {
+          const value = parseInt(match[1]);
+          const unit = match[2].toLowerCase();
+          let hours = 0;
+          
+          if (unit.includes("month")) hours = value * 160;
+          else if (unit.includes("week")) hours = value * 40;
+          else if (unit.includes("day")) hours = value * 8;
+          
+          studentStats[studentName].totalHours += hours;
+        }
+      }
     }
   });
 
-  const topSchools = Object.values(schoolStats)
-    .map(s => ({ ...s, studentCount: s.students.size }))
-    .sort((a, b) => b.totalProjects - a.totalProjects)
+  const topStudents = Object.values(studentStats)
+    .sort((a, b) => b.completedMissions - a.completedMissions)
     .slice(0, 10);
+  
+  console.log("📊 Student stats from completed projects:", studentStats);
+  console.log("🏆 Top students:", topStudents);
+  console.log("🔢 Top students length:", topStudents.length);
 
   if (isLoading) {
     return (
@@ -198,41 +221,41 @@ export default function ProductivityAnalytics() {
 
           </div>
 
-          {/* Top Contributing Schools */}
+          {/* Top Contributing Students */}
           <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: "12px", padding: "28px", animation: "fadeUp 0.3s 0.15s ease both" }}>
             <div style={{ marginBottom: "24px" }}>
-              <h2 style={{ fontSize: "18px", fontWeight: "600", color: "#0F172A", marginBottom: "6px" }}>Top Contributing Schools</h2>
+              <h2 style={{ fontSize: "18px", fontWeight: "600", color: "#0F172A", marginBottom: "6px" }}>Top Contributing Students</h2>
               <p style={{ fontSize: "13px", color: "#64748B" }}>
-                Leaderboard of schools producing the most active student volunteers
+                Leaderboard of students who completed the most community missions
               </p>
             </div>
 
-            {topSchools.length === 0 ? (
+            {topStudents.length === 0 ? (
               <div style={{ padding: "40px 20px", textAlign: "center" }}>
-                <p style={{ fontSize: "13px", color: "#94A3B8" }}>No school data available yet. Assign students to projects to see contributions.</p>
+                <p style={{ fontSize: "13px", color: "#94A3B8" }}>No completed missions yet. Students will appear here once they complete projects.</p>
               </div>
             ) : (
               <div>
                 {/* Table Header */}
-                <div style={{ display: "grid", gridTemplateColumns: "60px 1fr 120px 120px 120px", gap: "12px", padding: "12px 16px", background: "#F8FAFC", borderRadius: "8px", marginBottom: "8px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "60px 1fr 200px 140px 140px", gap: "12px", padding: "12px 16px", background: "#F8FAFC", borderRadius: "8px", marginBottom: "8px" }}>
                   <div style={{ fontSize: "11px", fontWeight: "600", color: "#64748B", textTransform: "uppercase", letterSpacing: "0.05em" }}>Rank</div>
-                  <div style={{ fontSize: "11px", fontWeight: "600", color: "#64748B", textTransform: "uppercase", letterSpacing: "0.05em" }}>School Name</div>
-                  <div style={{ fontSize: "11px", fontWeight: "600", color: "#64748B", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "center" }}>Students</div>
-                  <div style={{ fontSize: "11px", fontWeight: "600", color: "#64748B", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "center" }}>Projects</div>
+                  <div style={{ fontSize: "11px", fontWeight: "600", color: "#64748B", textTransform: "uppercase", letterSpacing: "0.05em" }}>Student Name</div>
+                  <div style={{ fontSize: "11px", fontWeight: "600", color: "#64748B", textTransform: "uppercase", letterSpacing: "0.05em" }}>School</div>
                   <div style={{ fontSize: "11px", fontWeight: "600", color: "#64748B", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "center" }}>Completed</div>
+                  <div style={{ fontSize: "11px", fontWeight: "600", color: "#64748B", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "center" }}>Hours</div>
                 </div>
 
                 {/* Table Rows */}
-                {topSchools.map((school, idx) => (
+                {topStudents.map((student, idx) => (
                   <div 
-                    key={school.name} 
+                    key={`${student.name}-${idx}`}
                     className="school-row"
                     style={{ 
                       display: "grid", 
-                      gridTemplateColumns: "60px 1fr 120px 120px 120px", 
+                      gridTemplateColumns: "60px 1fr 200px 140px 140px", 
                       gap: "12px", 
                       padding: "16px", 
-                      borderBottom: idx < topSchools.length - 1 ? "1px solid #F1F5F9" : "none",
+                      borderBottom: idx < topStudents.length - 1 ? "1px solid #F1F5F9" : "none",
                       transition: "background 0.15s",
                       animation: `slideIn 0.25s ${idx * 0.05}s ease both`
                     }}
@@ -245,29 +268,27 @@ export default function ProductivityAnalytics() {
                       {idx > 2 && <span style={{ fontSize: "14px", fontWeight: "600", color: "#94A3B8" }}>#{idx + 1}</span>}
                     </div>
 
-                    {/* School Name */}
+                    {/* Student Name */}
+                    <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                      <span style={{ fontSize: "14px", fontWeight: "500", color: "#0F172A" }}>{student.name}</span>
+                      <span style={{ fontSize: "11px", color: "#64748B" }}>{student.degree}</span>
+                    </div>
+
+                    {/* School */}
                     <div style={{ display: "flex", alignItems: "center" }}>
-                      <span style={{ fontSize: "14px", fontWeight: "500", color: "#0F172A" }}>{school.name}</span>
+                      <span style={{ fontSize: "13px", color: "#475569" }}>{student.school}</span>
                     </div>
 
-                    {/* Students */}
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontSize: "14px", fontWeight: "600", color: "#2563EB" }}>{school.studentCount}</span>
-                    </div>
-
-                    {/* Total Projects */}
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontSize: "14px", fontWeight: "500", color: "#475569" }}>{school.totalProjects}</span>
-                    </div>
-
-                    {/* Completed */}
+                    {/* Completed Missions */}
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-                      <span style={{ fontSize: "14px", fontWeight: "600", color: "#16A34A" }}>{school.completedProjects}</span>
-                      {school.totalProjects > 0 && (
-                        <span style={{ fontSize: "11px", color: "#64748B" }}>
-                          ({Math.round((school.completedProjects / school.totalProjects) * 100)}%)
-                        </span>
-                      )}
+                      <span style={{ fontSize: "18px", fontWeight: "700", color: "#16A34A" }}>{student.completedMissions}</span>
+                      <span style={{ fontSize: "11px", color: "#64748B" }}>missions</span>
+                    </div>
+
+                    {/* Total Hours */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                      <span style={{ fontSize: "14px", fontWeight: "600", color: "#2563EB" }}>{student.totalHours}</span>
+                      <span style={{ fontSize: "11px", color: "#64748B" }}>hrs</span>
                     </div>
                   </div>
                 ))}
